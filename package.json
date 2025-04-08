@@ -3,10 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@react-spring/web": "^9.5.5",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "@use-gesture/react": "^10.3.1",
     "ajv": "^6.12.6",
     "ajv-keywords": "^3.5.2",
     "axios": "^1.8.4",
@@ -29,7 +31,7 @@
       "react-app/jest"
     ],
     "globals": {
-      "google": "readonly" 
+      "google": "readonly"
     }
   },
   "browserslist": {
