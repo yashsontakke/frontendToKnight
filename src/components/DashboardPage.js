@@ -108,7 +108,7 @@ function DashboardPage({
     const closeMenu = () => setIsProfileMenuOpen(false);
     const handleLogoutClick = () => { onLogout(); closeMenu(); }; // Calls prop
     const goToUpdateProfile = () => { navigate('/update-profile'); closeMenu(); };
-    const goToViewProfile = () => { console.warn("Navigate to View Profile page - Not implemented yet."); closeMenu(); }
+    // const goToViewProfile = () => { console.warn("Navigate to View Profile page - Not implemented yet."); closeMenu(); }
 
     // --- Styles --- (Keep the styles object defined previously)
     const styles = {
@@ -200,7 +200,9 @@ function DashboardPage({
             {/* FAB and Menu */}
             <div style={styles.fabContainer}>
                  <div style={styles.profileMenu}>
-                    <button onClick={goToViewProfile} style={styles.menuItem}>View Profile</button>
+                    <Link to="/profile" style={styles.menuItem} onClick={closeMenu}>
+                        View Profile
+                    </Link>
                     <button onClick={goToUpdateProfile} style={styles.menuItem}>Update Profile</button>
                     <button onClick={handleLogoutClick} style={{...styles.menuItem, color: 'red'}}>Logout</button>
                 </div>

@@ -11,6 +11,7 @@ import axios from "axios";
 
 // Import Utility function
 import { getDistanceFromLatLonInMeters } from "./utils/locationUtils";
+import { getCookie } from "./utils/cookieUtils"; // Assuming you create this file (see below)
 
 // Components
 import HomePage from "./components/HomePage";
@@ -19,8 +20,39 @@ import LoginPage from "./components/LoginPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicOnlyRoute from "./components/PublicOnlyRoute";
 import UpdateProfilePage from "./components/UpdateProfilePage";
+import ViewProfilePage from './components/ViewProfilePage'; // <-- Import ViewProfilePage
 
-axios.defaults.withCredentials = true;
+// --- Axios Global Configuration ---
+axios.defaults.withCredentials = true; // Send cookies automatically
+axios.defaults.baseURL =
+  process.env.REACT_APP_BACKEND_URL || "http://localhost:8080"; // Set base URL globally
+// Axios interceptor to add CSRF token automatically (Optional but convenient)
+axios.interceptors.request.use((config) => {
+  const method = config.method?.toLowerCase();
+  if (
+    method === "post" ||
+    method === "put" ||
+    method === "delete" ||
+    method === "patch" ||
+    method === "get"
+  ) {
+    const csrfToken = getCookie("XSRF-TOKEN"); // Read CSRF token from cookie
+
+    if (csrfToken) {
+      console.log(
+        "Interceptor: Value from getCookie('XSRF-TOKEN'):",
+        csrfToken
+      ); // Log extracted value
+
+      config.headers["X-XSRF-TOKEN"] = csrfToken;
+      console.debug("Axios interceptor added X-XSRF-TOKEN header");
+    } else {
+      console.warn("CSRF token cookie (XSRF-TOKEN) not found.");
+    }
+  }
+  return config;
+});
+
 // Define constants for location states
 const LOCATION_STATE = {
   IDLE: "idle",
@@ -30,13 +62,10 @@ const LOCATION_STATE = {
   ERROR: "error",
 };
 
-const AUTH_BACKEND_URL =
-  process.env.REACT_APP_BACKEND_URL || "http://localhost:8080";
-const LOCATION_SERVICE_URL =
-  process.env.REACT_APP_LOCATION_SERVICE_URL || "http://localhost:8081"; //
+const BACKEND_URL = axios.defaults.baseURL; // Get from Axios default
 
 const LOCATION_UPDATE_INTERVAL_MS = 60 * 1000; // 1 minute
-const MIN_DISTANCE_METERS_TO_UPDATE = 100; // 100 meters
+const MIN_DISTANCE_METERS_TO_UPDATE = 0.0001; // 100 meters
 
 function App() {
   // --- State Variables ---
@@ -79,7 +108,7 @@ function App() {
       try {
         console.log("App.js: Calling backend logout...");
         // Adjust URL and method (POST is common) as needed for your backend endpoint
-        await axios.post(`${AUTH_BACKEND_URL}/api/auth/logout`);
+        await axios.post(`${BACKEND_URL}/api/auth/logout`);
         console.log("App.js: Backend logout call potentially successful.");
       } catch (error) {
         // Log error, but proceed with frontend logout regardless
@@ -169,7 +198,7 @@ function App() {
     setAuthError(null);
     try {
       // Browser sends HttpOnly cookie automatically because axios.defaults.withCredentials = true
-      const response = await axios.get(`${AUTH_BACKEND_URL}/api/users/me`);
+      const response = await axios.get(`/api/users/me`); // Use relative path
 
       if (response.data) {
         console.log(
@@ -224,10 +253,7 @@ function App() {
         // EXPECTATION: Backend verifies accessToken, finds/creates user,
         // SETS HttpOnly auth cookie via 'Set-Cookie' header,
         // and returns user data in the body (or just status OK).
-        const response = await axios.post(
-          `${AUTH_BACKEND_URL}/api/auth/google`,
-          { accessToken }
-        );
+        const response = await axios.post(`/api/auth/google`, { accessToken }); // Relative path
 
         console.log(
           "App.js: Backend /google Auth Response Status:",
@@ -283,46 +309,40 @@ function App() {
     return match && decodeURIComponent(match[1]);
   }
 
-  const sendLocationToBackend = useCallback(
-    async (coords) => {
-      if (!coords) {
-        /* ... */ return false;
-      }
-      const endpoint = `${LOCATION_SERVICE_URL}/api/location/update`; // Ensure correct URL
-      console.log(
-        `App.js: Attempting POST ${endpoint} (expecting cookie + CSRF if needed)`
-      );
-      try {
-        // --- IMPORTANT: CSRF Protection ---
-        // If your backend enabled CSRF protection (which it SHOULD with cookie auth),
-        // you MUST include the CSRF token here. Typically read from a non-HttpOnly
-        // 'XSRF-TOKEN' cookie and sent in an 'X-XSRF-TOKEN' header.
-        // Example (needs helper function `getCsrfToken`):
-        const config = { headers: { "X-XSRF-TOKEN": getCsrfToken() } };
-        await axios.post(endpoint, coords, config);
-        // --- For now, assuming CSRF header is handled automatically by axios or not yet enabled ---
-        // await axios.post(endpoint, coords); // Browser sends auth cookie automatically
+ // --- Function to Send Location to Backend ---
+ const sendLocationToBackend = useCallback(async (coords) => {
+  // Ensure coords object has latitude and longitude
+  if (!coords || coords.latitude == null || coords.longitude == null) {
+      console.error("sendLocationToBackend: Invalid coordinates provided.");
+      return false;
+  }
+  // Use the single backend URL
+  const endpoint = `${BACKEND_URL}/api/location/update`;
 
-        console.log("App.js: Location sent successfully.");
-        return true;
-      } catch (error) {
-        console.error(
-          "App.js: Error sending location:",
-          error.response?.status,
-          error.response?.data || error.message
-        );
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          // 403 could be invalid CSRF token
-          console.warn(
-            "App.js: Received 401/403 from location service. Logging out."
-          );
-          handleLogout();
-        }
-        return false;
+  // --- Create object with ONLY latitude and longitude ---
+  const locationDataToSend = {
+      latitude: coords.latitude,
+      longitude: coords.longitude
+      // DO NOT send userId, userDateTime, or timestamp
+  };
+  // ----------------------------------------------------
+
+  console.log(`App.js: Attempting POST ${endpoint} with data:`, locationDataToSend);
+  try {
+      // Axios interceptor adds CSRF header if configured
+      // Browser adds HttpOnly auth cookie
+      await axios.post(endpoint, locationDataToSend); // Send just lat/lon object
+
+      console.log("App.js: Location sent successfully.");
+      return true;
+  } catch (error) {
+      console.error("App.js: Error sending location:", error.response?.status, error.response?.data || error.message);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+           handleLogout();
       }
-    },
-    [handleLogout]
-  );
+      return false;
+  }
+}, [handleLogout]);
   // --- Function Called by Interval ---
   const updateLocationIfMoved = useCallback(() => {
     console.log("App.js/Interval: Checking location...");
@@ -496,6 +516,15 @@ function App() {
               </ProtectedRoute>
             }
           />
+           <Route
+                        path="/profile" // The path for viewing profile
+                        element={
+                            <ProtectedRoute user={user}>
+                                {/* Pass the user object down */}
+                                <ViewProfilePage user={user} />
+                            </ProtectedRoute>
+                        }
+                    />
 
           {/* 404 Not Found */}
           <Route
