@@ -19,7 +19,6 @@ import DashboardPage from "./components/DashboardPage";
 import LoginPage from "./components/LoginPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicOnlyRoute from "./components/PublicOnlyRoute";
-import UpdateProfilePage from "./components/UpdateProfilePage";
 import ViewProfilePage from './components/ViewProfilePage'; // <-- Import ViewProfilePage
 
 // --- Axios Global Configuration ---
@@ -415,6 +414,14 @@ function App() {
     );
   }, [sendLocationToBackend, handleLocationError, setUserCoords]); // Dependencies
 
+
+  const handleProfileUpdated = useCallback((updatedUser) => {
+    if (updatedUser) {
+        console.log("App.js: Updating user state with:", updatedUser);
+        setUser(updatedUser);
+        // NO localStorage update
+    }
+}, []);
   // --- Effect to Start/Stop Location Update Interval ---
   useEffect(() => {
     // Run only if: user is logged in, token exists, location permission granted
@@ -508,23 +515,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* --- Route for Viewing/Editing Profile --- */}
           <Route
-            path="/update-profile"
-            element={
-              <ProtectedRoute user={user}>
-                <UpdateProfilePage currentUser={user} />
-              </ProtectedRoute>
-            }
-          />
-           <Route
-                        path="/profile" // The path for viewing profile
-                        element={
-                            <ProtectedRoute user={user}>
-                                {/* Pass the user object down */}
-                                <ViewProfilePage user={user} />
-                            </ProtectedRoute>
-                        }
-                    />
+                    path="/profile" // Single route now
+                    element={
+                        <ProtectedRoute user={user}>
+                             {/* Pass user AND the update handler */}
+                             <ViewProfilePage user={user} onProfileUpdated={handleProfileUpdated} />
+                        </ProtectedRoute>
+                    }
+                />
 
           {/* 404 Not Found */}
           <Route

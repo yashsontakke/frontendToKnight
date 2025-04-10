@@ -59,7 +59,7 @@ function LoginPage({ onAccessTokenResponse }) {
                 const client = google.accounts.oauth2.initTokenClient({
                     client_id: GOOGLE_CLIENT_ID,
                     // --- IMPORTANT: Add the birthday scope here ---
-                    scope: 'openid email profile https://www.googleapis.com/auth/user.birthday.read',
+                    scope: `openid email profile https://www.googleapis.com/auth/user.birthday.read https://www.googleapis.com/auth/user.gender.read`, // <-- ADD GENDER SCOPE
                     callback: handleTokenResponse, // Handler for success (receives Access Token)
                     error_callback: handleTokenError, // Handler for errors
                 });
